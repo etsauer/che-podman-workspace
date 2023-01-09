@@ -6,7 +6,8 @@ metadata:
 components:
 - name: podman
   container: 
-    image: nexus.clg.lab:5001/dev-spaces/podman-basic:latest
+    image: quay.io/cgruver0/che/podman-basic:latest
+    ## image: nexus.clg.lab:5001/dev-spaces/podman-basic:latest
     memoryLimit: 6Gi
     mountSources: true
 - volume:
