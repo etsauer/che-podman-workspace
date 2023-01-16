@@ -1,11 +1,11 @@
 # Eclipse Che & OpenShift Dev Spaces Sample Project for Podman Container Development
 
-This project is intended to serve as a quick demo for using `podman` in Eclipse Che or its downstream, Red Hat supported sibling, OpenShift Dev Spaces.
+This project is intended to serve as a quick demo for using `podman` in [Eclipse Che](https://www.eclipse.org/che/) or its downstream, Red Hat supported sibling, [OpenShift Dev Spaces](https://developers.redhat.com/products/openshift-dev-spaces/overview).
 
 There are two specific things being demo'd here:
 
 1. Enabling container development in Eclipse Che & building a custom image for a workspace.
-1. Creating a Devfile to use the custom image.
+1. Creating a [Devfile](https://devfile.io) to use the custom image.
 1. Customizing the VS Code editor in the workspace.
 
 Let's get started.
@@ -112,7 +112,7 @@ In the next section, we'll create a Devfile that uses it in a Che workspace.
 
 ## Basic Devfile for Container Development
 
-This project includes a basic Devfile that you can use out of the box to create a workspace in Eclipse Che for building images with rootless podman.
+This project includes a basic [Devfile](https://devfile.io) that you can use out of the box to create a workspace in Eclipse Che for building images with rootless podman.
 
 ```yaml
 schemaVersion: 2.2.0
@@ -131,7 +131,7 @@ components:
   name: projects
 ```
 
-This is just about as simple as a Devfile can get.  
+This is just about as simple as a [Devfile](https://devfile.io) can get.  
 
 1. It is specifying one attribute, `controller.devfile.io/storage-type: per-workspace`, which instructs the Dev Workspace Operator to create a PVC for this workspace rather than sharing one across multiple workspaces.
 
@@ -143,6 +143,12 @@ This is just about as simple as a Devfile can get.
 1. The workspace is requesting one persistent volume.
 
 ## Customizing VS Code for your Workspace
+
+Take a look at the file: `workspace-dev.code-workspace`.  This is a JSON file that VS Code can ingest to open a VS Code workspace.
+
+__Note:__ There is a collision of terms here...  Not to confuse the Eclipse Che "workspace", as defined by `.devfile.yaml`, with the VS Code "workspace" which runs inside the Che "workspace" in the VS Code editor.
+
+Yeah...  There's only so many words out there.
 
 ```json
 {
@@ -166,18 +172,103 @@ This is just about as simple as a Devfile can get.
 }
 ```
 
+This file is standard VS Code configuration.  By including it in this project, it will automatically configure VS Code when your Eclipse Che workspace is provisioned.
+
+| | |
+| - | - |
+| `folders` | Contains a list of paths, relative to the location of this file, of folders to include in the VS Code workspace |
+| `extensions.recommendations` | Contains a list of VS Code extensions which will be installed when the VS Code workspace is opened |
+| `settings` | Contains additional VS Code settings for the workspace.  In this example, it is setting the color theme |
+| | |
+
 ## Putting it all together
 
-![Login With OAuth](./readme-images/eclipse-che-login-openshift-oauth.png)
+Let's see it in action.  For this part, you are going to need a running instance of Eclipse Che or OpenShift Dev Spaces.
 
-![Login](./readme-images/eclipse-che-login-openshift.png)
+Point your browser to the Eclipse Che route.
 
-![Landing Page](./readme-images/eclipse-che-landing-page.png)
+For a default install of Eclipse Che, you can get the route by executing:
 
-![Create Workspace](./readme-images/eclipse-che-create-workspace-from-git.png)
+```bash
+oc get route che -n eclipse-che -o jsonpath={.spec.host}
+```
 
-![Initial Workspace](./readme-images/eclipse-che-workspace-init.png)
+For OpenShift Dev Spaces, it will depend on your installation of the CheCluster CR.
 
-![Open VSCode Workspace](./readme-images/eclipse-che-open-workspace.png)
+1. When your browser loads the URL for the route, you should see something similar to the following:
 
-![VSCode Workspace](./readme-images/eclipse-che-workspace-open.png)
+   <img src="./readme-images/eclipse-che-login-openshift-oauth.png" width="50%"/>
+
+1. Click the `Log in with OpenShift` button.
+
+   <img src="./readme-images/eclipse-che-login-openshift.png" width="50%"/>
+
+   __Note:__ If this is your first time logging in, you will be asked to grant permissions for Che to use OpenShift OAuth to log you in.
+
+1. You should now see the Eclipse Che landing page:
+
+   ![Landing Page](./readme-images/eclipse-che-landing-page.png)
+
+1. Create a Workspace with this project:
+
+   Paste the URL for this Git project into the form as shown, and click `Create & Open`
+
+   <img src="./readme-images/eclipse-che-create-workspace-from-git.png" width="70%"/>
+
+   This action does several things to create your workspace:
+
+   1. It clones this Git repo.
+   1. It finds the `.devfile.yaml` and uses it to configure a DevWorkspace Custom Resource with the Dev Workspace Operator.
+   1. The DevWorkspace creates a PVC and attaches it to a pod.
+   1. It then adds the code from this repository to the /projects mount in the `podman` container.  (refer back to the .devfile.yaml for the container name)
+   1. It also runs an init container which injects the che-code (VS Code) editor into the `podman` container.
+   1. It starts VS Code and exposes it to your browser.
+
+1. The workspace should now open VS Code in your browser:
+
+   ![Initial Workspace](./readme-images/eclipse-che-workspace-init.png)
+
+1. In the running instance of VS Code, click on the file `workspace-dev.code-workspace`
+
+   You should see a button, `Open workspace` down in the bottom right hand corner.  Click on it.
+
+   ![Open VSCode Workspace](./readme-images/eclipse-che-open-workspace.png)
+
+1. VS Code will open the workspace.
+
+   In a few moments, you should see some changes.
+
+   1. The color theme will change to a light theme.  (Apologies...  I like light themes...  You can change it back.)
+   1. You will see the page for the GitLens extension load.
+
+   If you click on the extensions icon in the left-hand vertical nav bar, you will see that several extensions are now installed.
+
+   ![VSCode Workspace](./readme-images/eclipse-che-workspace-open.png)
+
+VS Code is now running in your browser!
+
+To get to the menu that you are used to seeing in the top nav bar on your workstation, click on the hamburger menu in the top left-hand corner.  We'll use that in a moment to open a terminal.
+
+To get to VS Code settings, click on the gear icon in the bottom left-hand corner.
+
+You can access your workspace account from the icon just above the gear.
+
+## Let's build a container
+
+1. Open a terminal:
+
+   <img src="./readme-images/eclipse-che-open-terminal.png" width="50%"/>
+
+1. Build a container:
+
+   In the terminal, run the following:
+
+   ```bash
+   podman build -t test:test -f basic-podman.Dockerfile .
+   ```
+
+   ![Podman Build](./readme-images/eclipse-che-build-image.png)
+
+That's It!
+
+__Note:__ Running containers in the nested way does not work yet with this example.  Stay tuned.
