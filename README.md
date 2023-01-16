@@ -167,3 +167,17 @@ This is just about as simple as a Devfile can get.
 ```
 
 ## Putting it all together
+
+![Login With OAuth](./readme-images/eclipse-che-login-openshift-oauth.png)
+
+![Login](./readme-images/eclipse-che-login-openshift.png)
+
+![Landing Page](./readme-images/eclipse-che-landing-page.png)
+
+![Create Workspace](./readme-images/eclipse-che-create-workspace-from-git.png)
+
+![Initial Workspace](./readme-images/eclipse-che-workspace-init.png)
+
+![Open VSCode Workspace](./readme-images/eclipse-che-open-workspace.png)
+
+![VSCode Workspace](./readme-images/eclipse-che-workspace-open.png)
