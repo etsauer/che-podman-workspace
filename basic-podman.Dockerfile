@@ -27,4 +27,4 @@ RUN microdnf --disableplugin=subscription-manager install -y openssl compat-open
     echo user:20000:65536 > /etc/subgid
 
 USER 10001
-WORKDIR /projects
+WORKDIR ${WORK_DIR}
