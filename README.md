@@ -181,6 +181,44 @@ This file is standard VS Code configuration.  By including it in this project, i
 | `settings` | Contains additional VS Code settings for the workspace.  In this example, it is setting the color theme |
 | | |
 
+```yaml
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: podman-basic
+spec:
+  source:
+    dockerfile: |
+      FROM registry.access.redhat.com/ubi9/ubi-minimal
+      ARG USER_HOME_DIR="/home/user"
+      ARG WORK_DIR="/projects"
+      ENV HOME=${USER_HOME_DIR}
+      ENV BUILDAH_ISOLATION=chroot
+      RUN microdnf --disableplugin=subscription-manager install -y openssl compat-openssl11 libbrotli git tar which shadow-utils bash zsh wget jq podman buildah skopeo; \
+        microdnf update -y ; \
+        microdnf clean all ; \
+        mkdir -p ${USER_HOME_DIR} ; \
+        mkdir -p ${WORK_DIR} ; \
+        chgrp -R 0 /home ; \
+        chgrp -R 0 ${WORK_DIR} ; \
+        setcap cap_setuid+ep /usr/bin/newuidmap ; \
+        setcap cap_setgid+ep /usr/bin/newgidmap ; \
+        mkdir -p "${HOME}"/.config/containers ; \
+        (echo '[storage]';echo 'driver = "vfs"') > "${HOME}"/.config/containers/storage.conf ; \
+        touch /etc/subgid /etc/subuid ; \
+        chmod -R g=u /etc/passwd /etc/group /etc/subuid /etc/subgid /home ${WORK_DIR} ; \
+        echo user:20000:65536 > /etc/subuid  ; \
+        echo user:20000:65536 > /etc/subgid
+      USER 10001
+      WORKDIR ${WORK_DIR}
+  strategy:
+    type: Docker
+  output:
+    to:
+      kind: ImageStreamTag
+      name: podman-basic:latest
+```
+
 ## Putting it all together
 
 Let's see it in action.  For this part, you are going to need a running instance of Eclipse Che or OpenShift Dev Spaces.
