@@ -181,19 +181,31 @@ This file is standard VS Code configuration.  By including it in this project, i
 | `settings` | Contains additional VS Code settings for the workspace.  In this example, it is setting the color theme |
 | | |
 
-## Putting it all together
+## Putting it all together - Let's Use the above files to create a workspace
 
-Let's see it in action.  For this part, you are going to need a running instance of Eclipse Che or OpenShift Dev Spaces.
+For this part, you are going to need a running instance of Eclipse Che or OpenShift Dev Spaces.
 
-Point your browser to the Eclipse Che route.
+You also need to make a choice here based on your particular environment:
 
-For a default install of Eclipse Che, you can get the route by executing:
+1. You OpenShift cluster has access to `github.com` and `quay.io`:
 
-```bash
-oc get route che -n eclipse-che -o jsonpath={.spec.host}
-```
+   Keep going.  The rest of this demo will work fine for you.
 
-For OpenShift Dev Spaces, it will depend on your installation of the CheCluster CR.
+1. Your OpenShift cluster is blocked from internet access:
+
+   Go here: [Disconnected Network Demo](./disconnected-network.md)
+
+### Run the demo
+
+1. Point your browser to the Eclipse Che route.
+
+   For a default install of Eclipse Che, you can get the route by executing:
+
+   ```bash
+   oc get route che -n eclipse-che -o jsonpath={.spec.host}
+   ```
+
+   For OpenShift Dev Spaces, it will depend on your installation of the CheCluster CR.
 
 1. When your browser loads the URL for the route, you should see something similar to the following:
 
@@ -211,11 +223,11 @@ For OpenShift Dev Spaces, it will depend on your installation of the CheCluster 
 
 1. Create a Workspace with this project:
 
-   Paste the URL for this Git project into the form as shown, and click `Create & Open`
+   Paste the URL for this Git project into the form as shown below, and click `Create & Open`
 
-   __Note 1:__ If your cluster does not have access to clone from GitHub.  Then you will need to make a clone of this project in your own Git SCM.  These instructions assume that the repo can be cloned without credentials.  So, a public repository is also assumed.
-
-   __Note 2:__ If your cluster does not have access to `quay.io`, then you will also have to create the podman image.  Scroll to the bottom of this page for instructions on using a `BuildConfig` to create the image in your OpenShift cluster's local registry.
+   ```text
+   https://github.com/cgruver/che-podman-workspace.git
+   ```
 
    <img src="./readme-images/eclipse-che-create-workspace-from-git.png" width="70%"/>
 
@@ -275,91 +287,4 @@ You can access your workspace account from the icon just above the gear.
 
 That's It!
 
-__Note:__ Running containers in the nested way does not work yet with this example.  Stay tuned.
-
-## Building the `podman` image in a cluster without access to `quay.io`
-
-1. Create an ImageStream to associate the new image with:
-
-   ```bash
-   cat << EOF | oc apply -n openshift -f -
-   apiVersion: image.openshift.io/v1
-   kind: ImageStream
-   metadata:
-     name: podman-basic
-     namespace: openshift
-   EOF
-   ```
-
-1. Create a `BuildConfig` to build the image:
-
-   ```bash
-   cat << EOF | oc apply -n openshift -f -
-   apiVersion: build.openshift.io/v1
-   kind: BuildConfig
-   metadata:
-     name: podman-basic
-   spec:
-     source:
-       dockerfile: |
-         FROM registry.access.redhat.com/ubi9/ubi-minimal
-         ARG USER_HOME_DIR="/home/user"
-         ARG WORK_DIR="/projects"
-         ENV HOME=\${USER_HOME_DIR}
-         ENV BUILDAH_ISOLATION=chroot
-         RUN microdnf --disableplugin=subscription-manager install -y openssl compat-openssl11 libbrotli git tar which shadow-utils bash zsh wget jq podman buildah skopeo; \
-           microdnf update -y ; \
-           microdnf clean all ; \
-           mkdir -p \${USER_HOME_DIR} ; \
-           mkdir -p \${WORK_DIR} ; \
-           chgrp -R 0 /home ; \
-           chgrp -R 0 \${WORK_DIR} ; \
-           setcap cap_setuid+ep /usr/bin/newuidmap ; \
-           setcap cap_setgid+ep /usr/bin/newgidmap ; \
-           mkdir -p "\${HOME}"/.config/containers ; \
-           (echo '[storage]';echo 'driver = "vfs"') > "\${HOME}"/.config/containers/storage.conf ; \
-           touch /etc/subgid /etc/subuid ; \
-           chmod -R g=u /etc/passwd /etc/group /etc/subuid /etc/subgid /home \${WORK_DIR} ; \
-           echo user:20000:65536 > /etc/subuid  ; \
-           echo user:20000:65536 > /etc/subgid
-         USER 10001
-         WORKDIR \${WORK_DIR}
-     strategy:
-       type: Docker
-     output:
-       to:
-         kind: ImageStreamTag
-         name: podman-basic:latest
-   EOF
-   ```
-
-1. Build the image:
-
-   ```bash
-   oc start-build podman-basic -n openshift -w -F
-   ```
-
-1. Verfy  the new tag on the `imageStream`
-
-   ```bash
-   oc get is podman-basic -n openshift
-   ```
-
-   You should see output similar to:
-
-   ```bash
-   NAME           IMAGE REPOSITORY                                                          TAGS     UPDATED
-   podman-basic   image-registry.openshift-image-registry.svc:5000/openshift/podman-basic   latest   4 minutes ago
-   ```
-
-1. Modify the `.devfile.yaml` in your copy of this code repo to use your new image:
-
-   Edit the file `.devfile.yaml` and replace:
-
-   `quay.io/cgruver0/che/podman-basic:latest`
-
-   with:
-
-   `image-registry.openshift-image-registry.svc:5000/openshift/podman-basic`
-
-Now, you should be able to use the git repository URL of your clone of this project to build the workspace.
+__Note:__ Running containers in this configuration does not work yet with this example.  Stay tuned.
