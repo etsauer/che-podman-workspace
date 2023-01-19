@@ -1,4 +1,8 @@
-## Building the `podman` image in a cluster without access to `quay.io`
+# Building the `podman` image in a cluster without access to `quay.io`
+
+1. First, make a clone of this GitHub repository in your SCM that the OpenShift cluster can access.
+
+   __Note:__ Unless you already have Eclipse Che set up for authenticated git access, you will need to make this project readable without authentication.
 
 1. Point your browser to the Eclipse Che route.
 
