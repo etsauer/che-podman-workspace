@@ -1,5 +1,7 @@
 # Building the `podman` image in a cluster without access to `quay.io`
 
+## Note:  This is WIP, it does not work yet.  Che does not give enough permissions on the namespace for Build/BuildConfig
+
 1. First, make a clone of this GitHub repository in your SCM that the OpenShift cluster can access.
 
    __Note:__ Unless you already have Eclipse Che set up for authenticated git access, you will need to make this project readable without authentication.
