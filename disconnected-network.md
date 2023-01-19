@@ -72,7 +72,7 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
 1. Create an ImageStream to associate the new image with:
 
    ```bash
-   cat << EOF | oc apply -n ${PROJECT} -f -
+   cat << EOF | oc apply -n ${CHE_PROJECT} -f -
    apiVersion: image.openshift.io/v1
    kind: ImageStream
    metadata:
@@ -83,7 +83,7 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
 1. Create a `BuildConfig` to build the image:
 
    ```bash
-   cat << EOF | oc apply -n ${PROJECT} -f -
+   cat << EOF | oc apply -n ${CHE_PROJECT} -f -
    apiVersion: build.openshift.io/v1
    kind: BuildConfig
    metadata:
@@ -125,13 +125,13 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
 1. Build the image:
 
    ```bash
-   oc start-build podman-basic -n ${PROJECT} -w -F
+   oc start-build podman-basic -n ${CHE_PROJECT} -w -F
    ```
 
 1. Verfy  the new tag on the `imageStream`
 
    ```bash
-   oc get is podman-basic -n ${PROJECT}
+   oc get is podman-basic -n ${CHE_PROJECT}
    ```
 
    You should see output similar to:
