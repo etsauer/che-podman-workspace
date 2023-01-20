@@ -342,7 +342,7 @@ This file is standard VS Code configuration.  By including it in this project, i
    Paste the URL for your clone of this Git project into the form as shown below, and click `Create & Open`
 
    ```text
-   https://github.com/cgruver/che-podman-workspace.git
+   https://your.git.scm.org/your-project/che-podman-workspace.git
    ```
 
    <img src="./readme-images/eclipse-che-create-workspace-from-git.png" width="70%"/>
