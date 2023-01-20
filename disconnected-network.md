@@ -1,8 +1,6 @@
 # Building the `podman` image in a cluster without access to `quay.io`
 
-## Note:  This is WIP, it does not work yet.  Che does not give enough permissions on the namespace for Build/BuildConfig
-
-1. First, make a clone of this GitHub repository in your SCM that the OpenShift cluster can access.
+1. First, make a clone of this GitHub repository in a Git repository that the OpenShift cluster can access.
 
    __Note:__ Unless you already have Eclipse Che set up for authenticated git access, you will need to make this project readable without authentication.
 
@@ -38,10 +36,18 @@ Before we continue in the Eclipse Che UI, we need to pause for a minute and crea
 
 __Note:__ It is assumed that you are using a non-admin openshift user.
 
+When you logged into Eclipse Che / Dev Spaces for the first time, it created a namespace for your user.  However, your user does not have full admin rights to this namespace.  So, we cannot directly create BuildConfigs or ImageStreams in that namespace.  To work around that, we're going to build a bit of a Rube Goldberg machine...  But, you might learn some new tricks in the process.
+
 1. Open a terminal and log into the OpenShift cluster with the `oc` cli:
 
    ```bash
    oc login <URL_OF_YOUR_OPENSHIFT_CLUSTER_API> -u <your-openshift-userid>
+   ```
+
+1. Create a namespace to host the podman ImageStream:
+
+   ```bash
+   oc new-project podman-build
    ```
 
 1. Find the namespace that the Dev Workspace Operator just created for you:
@@ -59,22 +65,17 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
    cgruver-che                  Active
    ```
 
-1. Set an environment variable with the project name:
+1. Grant the ability for service accounts to pull images from the `podman-build` namespace:
 
    ```bash
-   export CHE_PROJECT=<name-of-your-che-project>
-   ```
-
-   for example:
-
-   ```bash
-   export CHE_PROJECT=cgruver-che
+   oc policy add-role-to-user system:image-puller system:serviceaccount:<name-of-your-che-project>:default -n podman-build
+   oc policy add-role-to-group system:image-puller system:serviceaccounts -n podman-build
    ```
 
 1. Create an ImageStream to associate the new image with:
 
    ```bash
-   cat << EOF | oc apply -n ${CHE_PROJECT} -f -
+   cat << EOF | oc apply -n podman-build -f -
    apiVersion: image.openshift.io/v1
    kind: ImageStream
    metadata:
@@ -85,7 +86,7 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
 1. Create a `BuildConfig` to build the image:
 
    ```bash
-   cat << EOF | oc apply -n ${CHE_PROJECT} -f -
+   cat << EOF | oc apply -n podman-build -f -
    apiVersion: build.openshift.io/v1
    kind: BuildConfig
    metadata:
@@ -127,20 +128,20 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
 1. Build the image:
 
    ```bash
-   oc start-build podman-basic -n ${CHE_PROJECT} -w -F
+   oc start-build podman-basic -n podman-build -w -F
    ```
 
 1. Verfy  the new tag on the `imageStream`
 
    ```bash
-   oc get is podman-basic -n ${CHE_PROJECT}
+   oc get is podman-basic -n podman-build
    ```
 
    You should see output similar to:
 
    ```bash
    NAME           IMAGE REPOSITORY                                                          TAGS     UPDATED
-   podman-basic   image-registry.openshift-image-registry.svc:5000/<your-che-project>/podman-basic   latest   4 minutes ago
+   podman-basic   image-registry.openshift-image-registry.svc:5000/podman-build/podman-basic   latest   4 minutes ago
    ```
 
 1. Modify the `.devfile.yaml` in your copy of this code repo to use your new image:
@@ -151,7 +152,7 @@ __Note:__ It is assumed that you are using a non-admin openshift user.
 
    with:
 
-   `image-registry.openshift-image-registry.svc:5000/<your-che-project>/podman-basic`
+   `image-registry.openshift-image-registry.svc:5000/podman-build/podman-basic`
 
 Now, you should be able to use the git repository URL of your clone of this project to build the workspace.
 
