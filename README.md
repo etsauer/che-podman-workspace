@@ -108,6 +108,118 @@ Let's break this down:
 
 I have a pre-built instance of this container image here: `quay.io/cgruver0/che/podman-basic:latest`
 
+However, let's use the OpenShift internal registry and create a local instance of it to speed up workspace provisioning.
+
+1. Open a terminal and log into the OpenShift cluster with the `oc` cli:
+
+   ```bash
+   oc login <URL_OF_YOUR_OPENSHIFT_CLUSTER_API> -u <your-openshift-userid>
+   ```
+
+1. Create a namespace to host the podman ImageStream:
+
+   ```bash
+   oc new-project podman-build
+   ```
+
+1. Grant the ability for service accounts to pull images from the `podman-build` namespace:
+
+   __Note:__ You can do this in a couple of ways:
+
+   1. If you feel like sharing with everyone else in your OpenShift cluster, then do this:
+
+      ```bash
+      oc policy add-role-to-group system:image-puller system:serviceaccounts -n podman-build
+      ```
+
+      This grants all service accounts, in all namespaces, the ability to pull images created in your `podman-build` namespace.
+
+   1. If you don't want to share with everyone, then you need to know the name of the namespace that Eclipse Che will provision for you.
+
+      By default for Eclipse Che, the namespace will be `<your-userid>-che`.  For OpenShift Dev Spaces the namespace will be `<your-userid>-devspaces`.
+
+      Run this command to grant the Eclipse Che service accounts in your namespace access to the image:
+
+      ```bash
+      oc policy add-role-to-group system:image-puller system:serviceaccounts:<name-of-your-che-project> -n podman-build
+      ```
+
+1. Create an ImageStream to associate the new image with:
+
+   ```bash
+   cat << EOF | oc apply -n podman-build -f -
+   apiVersion: image.openshift.io/v1
+   kind: ImageStream
+   metadata:
+     name: podman-basic
+   EOF
+   ```
+
+1. Create a `BuildConfig` to build the image:
+
+   ```bash
+   cat << EOF | oc apply -n podman-build -f -
+   apiVersion: build.openshift.io/v1
+   kind: BuildConfig
+   metadata:
+     name: podman-basic
+   spec:
+     source:
+       dockerfile: |
+         FROM registry.access.redhat.com/ubi9/ubi-minimal
+         ARG USER_HOME_DIR="/home/user"
+         ARG WORK_DIR="/projects"
+         ENV HOME=\${USER_HOME_DIR}
+         ENV BUILDAH_ISOLATION=chroot
+         RUN microdnf --disableplugin=subscription-manager install -y openssl compat-openssl11 libbrotli git tar which shadow-utils bash zsh wget jq podman buildah skopeo; \
+           microdnf update -y ; \
+           microdnf clean all ; \
+           mkdir -p \${USER_HOME_DIR} ; \
+           mkdir -p \${WORK_DIR} ; \
+           chgrp -R 0 /home ; \
+           chgrp -R 0 \${WORK_DIR} ; \
+           setcap cap_setuid+ep /usr/bin/newuidmap ; \
+           setcap cap_setgid+ep /usr/bin/newgidmap ; \
+           mkdir -p "\${HOME}"/.config/containers ; \
+           (echo '[storage]';echo 'driver = "vfs"') > "\${HOME}"/.config/containers/storage.conf ; \
+           touch /etc/subgid /etc/subuid ; \
+           chmod -R g=u /etc/passwd /etc/group /etc/subuid /etc/subgid /home \${WORK_DIR} ; \
+           echo user:20000:65536 > /etc/subuid  ; \
+           echo user:20000:65536 > /etc/subgid
+         USER 10001
+         WORKDIR \${WORK_DIR}
+     strategy:
+       type: Docker
+     output:
+       to:
+         kind: ImageStreamTag
+         name: podman-basic:latest
+   EOF
+   ```
+
+   __Note:__ This BuildConfig has an inline Dockerfile that our image will be built from.  The output image will be `podman-basic:latest` and will be associated with the ImageStream we created.
+
+1. Build the image:
+
+   ```bash
+   oc start-build podman-basic -n podman-build -w -F
+   ```
+
+1. Verfy  the new tag on the `imageStream`
+
+   ```bash
+   oc get is podman-basic -n podman-build
+   ```
+
+   You should see output similar to:
+
+   ```bash
+   NAME           IMAGE REPOSITORY                                                          TAGS     UPDATED
+   podman-basic   image-registry.openshift-image-registry.svc:5000/podman-build/podman-basic   latest   4 minutes ago
+   ```
+
+OK.  Now we have a container image that supports podman in OpenShift.
+
 In the next section, we'll create a Devfile that uses it in a Che workspace.
 
 ## Basic Devfile for Container Development
@@ -141,6 +253,8 @@ This is just about as simple as a [Devfile](https://devfile.io) can get.
    1. We're instructing the workspace to expose the project source code in this component: `mountSources: true`
 
 1. The workspace is requesting one persistent volume.
+
+__Note:__ This Devfile is referencing the pre-built image in my Quay.io account.  You can leave it like that if you want.  But...  since we went to the trouble of building our own image, we'll use that one instead.
 
 ## Customizing VS Code for your Workspace
 
@@ -183,19 +297,21 @@ This file is standard VS Code configuration.  By including it in this project, i
 
 ## Putting it all together - Let's Use the above files to create a workspace
 
-For this part, you are going to need a running instance of Eclipse Che or OpenShift Dev Spaces.
+1. First, make a clone of this GitHub repository in a Git repository that the OpenShift cluster can access.
 
-You also need to make a choice here based on your particular environment:
+   __Note:__ Unless you already have Eclipse Che set up for authenticated git access, you will need to make this project readable without authentication.
 
-1. You OpenShift cluster has access to `github.com` and `quay.io`:
+1. Modify the `.devfile.yaml` in your copy of this code repo to use your new image:
 
-   Keep going.  The rest of this demo will work fine for you.
+   Edit the file `.devfile.yaml` and replace:
 
-1. Your OpenShift cluster is blocked from internet access:
+   `quay.io/cgruver0/che/podman-basic:latest`
 
-   Go here: [Disconnected Network Demo](./disconnected-network.md)
+   with:
 
-### Run the demo
+   `image-registry.openshift-image-registry.svc:5000/podman-build/podman-basic`
+
+   Now, you will be able to use the git repository URL of your clone of this project to build the workspace.
 
 1. Point your browser to the Eclipse Che route.
 
@@ -223,7 +339,7 @@ You also need to make a choice here based on your particular environment:
 
 1. Create a Workspace with this project:
 
-   Paste the URL for this Git project into the form as shown below, and click `Create & Open`
+   Paste the URL for your clone of this Git project into the form as shown below, and click `Create & Open`
 
    ```text
    https://github.com/cgruver/che-podman-workspace.git
